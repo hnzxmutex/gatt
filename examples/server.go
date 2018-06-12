@@ -45,7 +45,8 @@ func main() {
 			d.AdvertiseNameAndServices("Gopher", []gatt.UUID{s1.UUID(), s2.UUID()})
 
 			// Advertise as an OpenBeacon iBeacon
-			d.AdvertiseIBeacon(gatt.MustParseUUID("AA6062F098CA42118EC4193EB73CCEB6"), 1, 2, -59)
+			// "AdvertiseIBeacon" would disable advertising above,have no idea why
+			// d.AdvertiseIBeacon(gatt.MustParseUUID("AA6062F098CA42118EC4193EB73CCEB6"), 1, 2, -59)
 
 		default:
 		}

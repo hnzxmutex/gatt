@@ -81,7 +81,7 @@ func (d *device) Init(f func(Device, State)) error {
 }
 
 func (d *device) Advertise(a *AdvPacket) error {
-	rsp := d.sendReq(8, xpc.Dict{
+	rsp := d.sendReq(16, xpc.Dict{
 		"kCBAdvDataAppleMfgData": a.b, // not a.Bytes(). should be slice
 	})
 
@@ -93,7 +93,7 @@ func (d *device) Advertise(a *AdvPacket) error {
 
 func (d *device) AdvertiseNameAndServices(name string, ss []UUID) error {
 	us := uuidSlice(ss)
-	rsp := d.sendReq(8, xpc.Dict{
+	rsp := d.sendReq(16, xpc.Dict{
 		"kCBAdvDataLocalName":    name,
 		"kCBAdvDataServiceUUIDs": us},
 	)
@@ -113,9 +113,9 @@ func (d *device) AdvertiseIBeaconData(data []byte) error {
 		l := len(data)
 		buf := bytes.NewBuffer([]byte{byte(l + 5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
 		buf.Write(data)
-		rsp = d.sendReq(8, xpc.Dict{"kCBAdvDataAppleMfgData": buf.Bytes()})
+		rsp = d.sendReq(16, xpc.Dict{"kCBAdvDataAppleMfgData": buf.Bytes()})
 	} else {
-		rsp = d.sendReq(8, xpc.Dict{"kCBAdvDataAppleBeaconKey": data})
+		rsp = d.sendReq(16, xpc.Dict{"kCBAdvDataAppleBeaconKey": data})
 	}
 
 	if res := rsp.MustGetInt("kCBMsgArgResult"); res != 0 {
@@ -135,7 +135,7 @@ func (d *device) AdvertiseIBeacon(u UUID, major, minor uint16, pwr int8) error {
 }
 
 func (d *device) StopAdvertising() error {
-	rsp := d.sendReq(9, nil)
+	rsp := d.sendReq(28, nil)
 	if res := rsp.MustGetInt("kCBMsgArgResult"); res != 0 {
 		return errors.New("FIXME: Stop Advertise error")
 	}
@@ -143,7 +143,7 @@ func (d *device) StopAdvertising() error {
 }
 
 func (d *device) RemoveAllServices() error {
-	d.sendCmd(12, nil)
+	d.sendCmd(19, nil)
 	return nil
 }
 
@@ -232,7 +232,7 @@ func (d *device) AddService(s *Service) error {
 	}
 	xs["kCBMsgArgCharacteristics"] = xcs
 
-	rsp := d.sendReq(10, xs)
+	rsp := d.sendReq(18, xs)
 	if res := rsp.MustGetInt("kCBMsgArgResult"); res != 0 {
 		return errors.New("FIXME: Add Srvice error")
 	}
@@ -276,7 +276,7 @@ func (d *device) Connect(p Peripheral) {
 func (d *device) respondToRequest(id int, args xpc.Dict) {
 
 	switch id {
-	case 19: // ReadRequest
+	case 30: // ReadRequest
 		u := UUID{args.MustGetUUID("kCBMsgArgDeviceUUID")}
 		t := args.MustGetInt("kCBMsgArgTransactionID")
 		a := args.MustGetInt("kCBMsgArgAttributeID")
@@ -298,14 +298,14 @@ func (d *device) respondToRequest(id int, args xpc.Dict) {
 			}
 		}
 
-		d.sendCmd(13, xpc.Dict{
+		d.sendCmd(21, xpc.Dict{
 			"kCBMsgArgAttributeID":   a,
 			"kCBMsgArgData":          v,
 			"kCBMsgArgTransactionID": t,
 			"kCBMsgArgResult":        0,
 		})
 
-	case 20: // WriteRequest
+	case 31: // WriteRequest
 		u := UUID{args.MustGetUUID("kCBMsgArgDeviceUUID")}
 		t := args.MustGetInt("kCBMsgArgTransactionID")
 		a := 0
@@ -332,14 +332,14 @@ func (d *device) respondToRequest(id int, args xpc.Dict) {
 		if noRsp {
 			break
 		}
-		d.sendCmd(13, xpc.Dict{
+		d.sendCmd(21, xpc.Dict{
 			"kCBMsgArgAttributeID":   a,
 			"kCBMsgArgData":          nil,
 			"kCBMsgArgTransactionID": t,
 			"kCBMsgArgResult":        0,
 		})
 
-	case 21: // subscribed
+	case 32: // subscribed
 		u := UUID{args.MustGetUUID("kCBMsgArgDeviceUUID")}
 		a := args.MustGetInt("kCBMsgArgAttributeID")
 		attr := d.attrs[a]
@@ -347,7 +347,7 @@ func (d *device) respondToRequest(id int, args xpc.Dict) {
 		d.subscribers[u.String()] = c
 		c.startNotify(attr, c.mtu)
 
-	case 22: // unubscribed
+	case 33: // unubscribed
 		u := UUID{args.MustGetUUID("kCBMsgArgDeviceUUID")}
 		a := args.MustGetInt("kCBMsgArgAttributeID")
 		attr := d.attrs[a]
@@ -355,7 +355,7 @@ func (d *device) respondToRequest(id int, args xpc.Dict) {
 			c.stopNotify(attr)
 		}
 
-	case 23: // notificationSent
+	case 34: // notificationSent
 	}
 }
 
@@ -373,22 +373,22 @@ func (d *device) HandleXpcEvent(event xpc.Dict, err error) {
 
 	id := event.MustGetInt("kCBMsgId")
 	args := event.MustGetDict("kCBMsgArgs")
-	//log.Printf(">> %d, %v", id, args)
+	log.Printf(">> %d, %v", id, args)
 
 	switch id {
 	case // device event
-		6,  // StateChanged
-		16, // AdvertisingStarted
-		17, // AdvertisingStopped
-		18: // ServiceAdded
+		4,  // StateChanged
+		27, // AdvertisingStarted
+		28, // AdvertisingStopped
+		29: // ServiceAdded
 		d.rspc <- message{id: id, args: args}
 
 	case
-		19, // ReadRequest
-		20, // WriteRequest
-		21, // Subscribe
-		22, // Unubscribe
-		23: // Confirmation
+		30, // ReadRequest
+		31, // WriteRequest
+		32, // Subscribe
+		33, // Unubscribe
+		34: // Confirmation
 		d.respondToRequest(id, args)
 
 	case peripheralDiscovered:
