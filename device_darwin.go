@@ -373,7 +373,7 @@ func (d *device) HandleXpcEvent(event xpc.Dict, err error) {
 
 	id := event.MustGetInt("kCBMsgId")
 	args := event.MustGetDict("kCBMsgArgs")
-	log.Printf(">> %d, %v", id, args)
+	// log.Printf(">> %d, %v", id, args)
 
 	switch id {
 	case // device event
